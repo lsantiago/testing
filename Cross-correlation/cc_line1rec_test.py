@@ -18,9 +18,7 @@ import math
 from scipy import signal
 import time
 from scipy.fft import fft, ifft
-from myfunctions import deconvo
-
-
+from myfunctions import deconvo, rm_damaged_signal, interfer_deconvo
 
 #%% opening the files and extracing the data from the .txt file
 
@@ -34,7 +32,6 @@ dt = 1./Fs
 nb_sen = 20
 n = 45056
 
-
 # changing the vector into data matrix (rows - data points, columns - sensors)
 data_all = data_all.reshape((nb_sen,n)).T
 
@@ -42,7 +39,6 @@ data_all = data_all.reshape((nb_sen,n)).T
 time = np.arange(n) * dt
 
 #%% trend and mean removal
-
 
 ## mean removal
 data_zero_mean = data_all - data_all.mean(axis=0)
@@ -58,10 +54,14 @@ for sensor in range(nb_sen):
 
 data_detrend = data_zero_mean - sensor_trend
 
-# =============================================================================
-# # pre-processed data
 
+## pre-processed data
 data = data_detrend.copy()
+
+#%% removing damaged signals
+
+treshold = 0.26 
+data = rm_damaged_signal(data,treshold)
 
 #%% Plotting the signals
 
@@ -75,28 +75,15 @@ plt.tight_layout()
 
 
 ## for one recording 
-
 cc = np.correlate(data[:,0], data[:,2], mode = 'full')
-
 lags = np.linspace(-(n-1),n-1,n*2-1) # lags axis
 
 max_lag_cc = lags[np.argmax(cc)]
 max_lag_time_cc = max_lag_cc * dt
 
 
-# plot of cross correlation for one time series
-
-fig, ax = plt.subplots()
-
-ax.plot(lags,cc)
-ax.plot(max_lag_cc, max(cc), 'ro')
-ax.set_xlabel('lags')
-
-ax.set_title(f'Max lag time is {max_lag_time_cc} s')
-
 
 ## for all recordings
-
 cc_matrix = np.empty((len(lags),nb_sen), dtype = 'float')
 max_lag_cc_vector = np.empty((nb_sen), dtype = 'float')
 max_lag_cc_time_vector = np.empty((nb_sen), dtype = 'float')
@@ -107,9 +94,16 @@ for sensor in range(nb_sen):
     max_lag_cc_time_vector[sensor] = max_lag_cc_vector[sensor] * dt
 
 
-# plot of the cc of all recordings
-fig, ax = plt.subplots(figsize = (15,15))
+## plots
+#  one time series
+fig, ax = plt.subplots()
+ax.plot(lags,cc)
+ax.plot(max_lag_cc, max(cc), 'ro')
+ax.set_xlabel('lags')
+ax.set_title(f'Max lag time is {max_lag_time_cc} s')
 
+# all recordings
+fig, ax = plt.subplots(figsize = (15,15))
 for sensor in range(nb_sen):
     ax.plot(lags*dt,cc_matrix[:,sensor]+0.00001*sensor)
     ax.plot(max_lag_cc_vector[sensor]* dt , max(cc_matrix[:,sensor])+0.00001*sensor, 'ro')
@@ -119,65 +113,42 @@ ax.set_xlim([-0.5,0.5])
 
 #%% Deconvolution
 
-
+## setting necessary parameters for deconvolution
 wl = 1  # water level in %
 r = 3   # resampling for better peak peaking
 dstack = 0.5   # length of the singal for the visualisation of the deconvolution [in  sec]
-Fs_r = Fs * r  # resampled sampling frequency   
  
 #-----------------------------------------------------------------------------
 
-#for one signal
+## for one signal
 
 # signal deconvolution
-sig_deco = deconvo(data[:,0], data[:,19],wl);
-nt=len(sig_deco); # deconvolved signal length
-
-# flipping the signal
-sig_deco=np.concatenate((sig_deco[(math.floor(nt/2)):],sig_deco[:(math.floor(nt/2))]))
-
-# signal resampling -> resample(sig, number of samples) --> sig * p/q
-sig_deco=signal.resample(sig_deco,nt*r);
-nt2=len(sig_deco);   # length of the resampled signal
-
-# deconvolved and resampled signal - taken just the dstack*2 length
-sig_deco_r=sig_deco[(math.floor(nt2/2+1)-int(dstack*Fs_r)):(math.floor(nt2/2+1)+1+int(dstack*Fs_r))]
-
-t = np.linspace(-dstack, dstack, len(sig_deco_r))
+sig_deco, t = interfer_deconvo(data[:,0], data[:,19], wl, r, dstack, Fs, t_ax = True)
 
 # max delay values
 max_lag_d = t[np.argmax(sig_deco_r)]
 max_lag_time_d = max_lag_d * dt
 
-# Plot of the deconvolved signal 
-fig, ax = plt.subplots(figsize = (15,5))
 
+## for all recordings
+sig_deco_matrix = np.empty((Fs * r+1,nb_sen))   #empty matrix for all recordings deconvolution
+
+for sensor in range(nb_sen):
+    sig_deco_temp = interfer_deconvo(data[:,0], data[:,sensor], wl, r, dstack, Fs)
+    sig_deco_matrix[:,sensor] = sig_deco_temp
+
+
+## plots
+# one signal
+fig, ax = plt.subplots(figsize = (15,5))
 ax.plot(t,sig_deco_r)
 ax.plot(max_lag_d, max(sig_deco_r), 'ro')
 ax.set_title(f'Max delay is {max_lag_time_d} s')
 
-
-# for all recordings
-sig_deco_matrix = np.empty((Fs_r+1,nb_sen))
-
-for sensor in range(nb_sen):
-    sig_deco=deconvo(data[:,0],data[:,sensor],wl);
-    nt=len(sig_deco); # deconvolved signal length
-    
-    sig_deco=np.concatenate((sig_deco[(math.floor(nt/2)):],sig_deco[:(math.floor(nt/2))]))
-
-    sig_deco=signal.resample(sig_deco,nt*r);
-    nt2=len(sig_deco);   # length of the resampled signal
-
-    sig_deco_matrix[:,sensor]=sig_deco[(math.floor(nt2/2+1)-int(dstack*Fs_r)):(math.floor(nt2/2+1)+1+int(dstack*Fs_r))]
-
-
-# plot for all recordings
+# all recordings
 fig, ax = plt.subplots(figsize = (15,15))
-
 for sensor in range(nb_sen):
     ax.plot(t,sig_deco_matrix[:,sensor]+0.1*sensor)
-    #ax.plot(max_lag_cc_vector[sensor]* dt , max(cc_matrix[:,sensor])+0.00001*sensor, 'ro')
     ax.set_xlabel('time delay [s]')
 
 
