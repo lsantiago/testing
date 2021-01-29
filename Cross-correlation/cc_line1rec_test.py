@@ -5,7 +5,7 @@ Created on Thu Jan  7 11:34:17 2021
 
 @author: annamaria
 
-Code for cross-correlation test
+Code for cross-correlation and deconvolution test
 % data used - recording from Matera - Line 1 geophones
 % recording - 25_10_2019_10_51_00_000
 """
