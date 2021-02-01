@@ -16,6 +16,9 @@ from obspy.signal.invsim import paz_to_freq_resp, invert_spectrum, cosine_taper
 from obspy.signal.util import _npts2nfft
 import time
 
+#%% Importing set parameters
+from recordings_parameters.parameters import paz
+
 #%% Reading the data
 data = read('/Users/annamaria/PhD/Data/Matera/20201105_building_data/EQ/9EDA.X.2019.298.04.31.10')
 data.plot()
@@ -28,10 +31,10 @@ data.plot()
 #%% Instument response  Reftek 
 tic = time.time()
 
-poles = [-4.210000e+00 + 4.660000e+00j, -4.210000e+00 - 4.660000e+00j, -2.105000e+00 + 0.000000e+00j]  # The poles of the transfer function
-zeros = [0.0 + 0.0j, 0.0 + 0.0j, 0.0 + 0.0j]    # The zeros of the transfer function
-scale_fac = 9.991270e-01          # Gain factor
-sensitivity = 2.519500e+08
+poles = paz["Reftek"]["Poles"]  # The poles of the transfer function
+zeros = paz["Reftek"]["Zeros"]   # The zeros of the transfer function
+scale_fac = paz["Reftek"]["Gain"]         # Gain factor
+sensitivity = paz["Reftek"]["Sensitivity"]
 
 t_samp = data[0].stats.delta     # Sampling interval in seconds
 ndat = data[0].stats.npts        # Number of FFT points of signal which needs correction
