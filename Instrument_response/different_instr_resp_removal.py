@@ -20,7 +20,8 @@ import time
 from recordings_parameters.parameters import paz
 
 #%% Reading the data
-data = read('/Users/annamaria/PhD/Data/Matera/20201105_building_data/EQ/9EDA.X.2019.298.04.31.10')
+#data = read('/Users/annamaria/PhD/Data/Matera/20201105_building_data/EQ/9EDA.X.2019.298.04.31.10')
+data = read('/Users/annamaria/PhD/Data/Matera/20200426_3component_athletic_ground_Matera/EQ/921A.EHN.2019.298.04.31.10')
 data.plot()
 
 # signal pre-processing
@@ -31,10 +32,10 @@ data.plot()
 #%% Instument response  Reftek 
 tic = time.time()
 
-poles = paz["Reftek"]["Poles"]  # The poles of the transfer function
-zeros = paz["Reftek"]["Zeros"]   # The zeros of the transfer function
-scale_fac = paz["Reftek"]["Gain"]         # Gain factor
-sensitivity = paz["Reftek"]["Sensitivity"]
+poles = paz["Reftek"]["poles"]  # The poles of the transfer function
+zeros = paz["Reftek"]["zeros"]   # The zeros of the transfer function
+scale_fac = paz["Reftek"]["gain"]         # Gain factor
+sensitivity = paz["Reftek"]["sensitivity"]
 
 t_samp = data[0].stats.delta     # Sampling interval in seconds
 ndat = data[0].stats.npts        # Number of FFT points of signal which needs correction
@@ -49,10 +50,7 @@ print(f' calculating instrument response = {toc} s')
 #%% Define some parameters
 
 samp_rate = data[0].stats.sampling_rate
-paz_file =  { "poles" : poles, 
-              "zeros" : zeros,
-              "gain"  : scale_fac,
-              "sensitivity": sensitivity}
+paz_file =  paz["Reftek"]
 
 fft_raw = np.fft.rfft(data[0].data, n=nfft)
 time_vector = np.arange(ndat) * t_samp
