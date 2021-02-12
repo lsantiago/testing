@@ -64,7 +64,7 @@ signal_rr1 = ob.signal.invsim.simulate_seismometer(
         data[0].data, samp_rate, paz_remove=paz_file, paz_simulate=None,
         remove_sensitivity=True, simulate_sensitivity=False, water_level=wl,
         zero_mean=False, taper=False, pre_filt=None,
-        seedresp=None, nfft_pow2=False, pitsasim=True, sacsim=False,
+        seedresp=None, nfft_pow2=False, pitsasim=False, sacsim=False,
         shsim=False)
 
 fft_instr_rr1 = np.fft.rfft(signal_rr1, n=nfft)
