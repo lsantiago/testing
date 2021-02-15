@@ -20,8 +20,8 @@ import time
 from recordings_parameters.parameters import paz
 
 #%% Reading the data
-#data = read('/Users/annamaria/PhD/Data/Matera/20201105_building_data/EQ/9EDA.X.2019.298.04.31.10')
-data = read('/Users/annamaria/PhD/Data/Matera/20200426_3component_athletic_ground_Matera/EQ/921A.EHN.2019.298.04.31.10')
+data = read('/Users/annamaria/PhD/Data/Matera/20201105_building_data/EQ/Reftek.9EDA.EHE.2019.298.04.31.10')
+#data = read('/Users/annamaria/PhD/Data/Matera/20200426_3component_athletic_ground_Matera/EQ/921A.EHN.2019.298.04.31.10')
 data.plot()
 
 # signal pre-processing
