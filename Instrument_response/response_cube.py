@@ -32,7 +32,7 @@ data[0].data *= cosine_taper(data[0].stats.npts , 0.1)
 data.plot()
 
 
-#%% Instument response  Lunitek 
+#%% Instument response  CUBE 
 tic = time.time()
 
 poles = paz["CUBE"]["poles"]  # The poles of the transfer function
@@ -50,7 +50,7 @@ phase = 2 * np.pi + np.unwrap(np.angle(h))
 toc = time.time() - tic
 print(f' calculating instrument response = {toc} s')
 
-# CUBE sensor response plot
+# reftek sensor response plot
 fig, ax = plt.subplots(1,2)
 
 ax[0].loglog(f, abs(h))
@@ -64,7 +64,7 @@ ax[1].set_yticks([0, np.pi / 2, np.pi, 3 * np.pi / 2, 2 * np.pi])
 ax[1].set_yticklabels(['$0$', r'$\frac{\pi}{2}$', r'$\pi$', r'$\frac{3\pi}{2}$', r'$2\pi$'])
 ax[1].set_ylim(-0.2, 2 * np.pi + 0.2)
 
-fig.suptitle('Frequency Lunitek of CUBE sensor')
+fig.suptitle('Frequency Response of CUBE sensor')
 fig.subplots_adjust(wspace=0.3)
 
 #%% FFT and defining some parameters
@@ -85,7 +85,7 @@ freqaxis = np.fft.rfftfreq(nfft, d = 1./samp_rate)
 #%% my deconvolution function
 tic = time.time()
 
-WL = 0.0001
+WL = 1
 abs_h=abs(h)
 h_wl = np.zeros(len(h),dtype = "complex")
 # calculating the response with the waterlevel
@@ -144,19 +144,28 @@ fig.suptitle(f'Checking the deconvolution process with waterlevel = {WL} %')
 
 #%% plot - comparison the fourier spectra's
 
-fig, axs = plt.subplots(3,1, figsize = (10,10))
+fig, axs = plt.subplots(4,1, figsize = (10,13))
 
 ax = axs[0]
-ax.loglog(freqaxis, abs(fft_raw))
-ax.set_title("Spectra of the raw signal")
+ax.plot(signal_rr3)
+ax.set_xlabel('Time')
+ax.set_ylabel('Velocity [m/s]')
+ax.set_title("signal after response removal")
 
 ax = axs[1]
-ax.loglog(freqaxis, abs(fft_instr_rr3))
-ax.set_title(f'Spectra after response removal with waterlevel = {WL} %')
+ax.loglog(freqaxis, abs(fft_raw))
+ax.set_title("Spectra of the raw signal")
+ax.set_xlabel('Frequency [Hz]')
 
 ax = axs[2]
+ax.loglog(freqaxis, abs(fft_instr_rr3))
+ax.set_xlabel('Frequency [Hz]')
+ax.set_title(f'Spectra after response removal with waterlevel = {WL} %')
+
+ax = axs[3]
 ax.loglog(freqaxis, norm_raw , label = 'raw signal')
 ax.loglog(freqaxis, norm_ic , label = 'insturment correction')
+ax.set_xlabel('Frequency [Hz]')
 ax.legend()
 ax.set_title(f'Normalized comparison of the fft before and after response removal, waterlevel = {WL} %')
 
