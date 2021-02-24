@@ -18,31 +18,38 @@ import time
 
 #%% Importing set parameters
 from recordings_parameters.parameters import paz
-
 #%% Reading the data
-data = read('/Users/annamaria/PhD/Data/Matera/20201105_building_data/EQ/Reftek.9EDA.EHE.2019.298.04.31.10')
-#data = read('/Users/annamaria/PhD/Data/Matera/20200426_3component_athletic_ground_Matera/EQ/921A.EHN.2019.298.04.31.10')
+path = '/Users/annamaria/PhD/Data/Matera/20201105_building_data/EQ/'
+file = 'Lunitek.GE004.EHE.2019.298.04.31.10'
+
+data = read(path + file)
 data.plot()
+
+sensor = file.split('.')[0]
 
 # signal pre-processing
 data[0].data -= data[0].data.mean()
 data[0].data *= cosine_taper(data[0].stats.npts , 0.1)
 data.plot()
 
-#%% Instument response  Reftek 
+#%% Instument response  
 tic = time.time()
 
-poles = paz["Reftek"]["poles"]  # The poles of the transfer function
-zeros = paz["Reftek"]["zeros"]   # The zeros of the transfer function
-scale_fac = paz["Reftek"]["gain"]         # Gain factor
-sensitivity = paz["Reftek"]["sensitivity"]
+poles = paz[sensor]["poles"]  # The poles of the transfer function
+zeros = paz[sensor]["zeros"]   # The zeros of the transfer function
+scale_fac = paz[sensor]["gain"]         # Gain factor
+sensitivity = paz[sensor]["sensitivity"]
 
 t_samp = data[0].stats.delta     # Sampling interval in seconds
 ndat = data[0].stats.npts        # Number of FFT points of signal which needs correction
 nfft = _npts2nfft(ndat) 
 
 h, f = paz_to_freq_resp(poles, zeros, scale_fac, t_samp, nfft, freq=True)
-phase = 2* np.pi + np.unwrap(np.angle(h))
+
+if sensor == "Lunitek":
+    phase = np.pi + np.unwrap(np.angle(h))
+else:
+    phase = 2* np.pi + np.unwrap(np.angle(h))
 
 toc = time.time() - tic
 print(f' calculating instrument response = {toc} s')
@@ -50,7 +57,7 @@ print(f' calculating instrument response = {toc} s')
 #%% Define some parameters
 
 samp_rate = data[0].stats.sampling_rate
-paz_file =  paz["Reftek"]
+paz_file =  paz[sensor]
 
 fft_raw = np.fft.rfft(data[0].data, n=nfft)
 time_vector = np.arange(ndat) * t_samp
@@ -58,7 +65,7 @@ freqaxis = np.fft.rfftfreq(nfft, d = 1./samp_rate)
 
 #%% Approach #1 - Obspy simulate seismometer 
 tic = time.time()
-wl = 1
+wl = 50
 
 signal_rr1 = ob.signal.invsim.simulate_seismometer(
         data[0].data, samp_rate, paz_remove=paz_file, paz_simulate=None,
@@ -87,7 +94,7 @@ print(f'Approach #2 - Obspy manual response removal  = {toc} s')
 #%% Approach #3 - Using my deconvolution function
 tic = time.time()
 
-WL = 80
+WL = 1
 abs_h=abs(h)
 h_wl = np.zeros(len(h),dtype = "complex")
 # calculating the response with the waterlevel
@@ -107,7 +114,7 @@ signal_rr3 = np.fft.irfft(fft_instr_rr3)[0:ndat]
 toc = time.time() - tic
 print(f'Approach #3 - Using my deconvolution function  = {toc} s')
 #%% Figures
-# reftek sensor response
+# sensor response
 fig, ax = plt.subplots(1,2)
 
 ax[0].loglog(f, abs(h))
@@ -121,7 +128,7 @@ ax[1].set_yticks([0, np.pi / 2, np.pi, 3 * np.pi / 2, 2 * np.pi])
 ax[1].set_yticklabels(['$0$', r'$\frac{\pi}{2}$', r'$\pi$', r'$\frac{3\pi}{2}$', r'$2\pi$'])
 ax[1].set_ylim(-0.2, 2 * np.pi + 0.2)
 
-fig.suptitle('Frequency Response of Reftek sensor')
+fig.suptitle(f'Frequency Response of {sensor} sensor')
 fig.subplots_adjust(wspace=0.3)
 
 # Approach #1 - Obspy simulate seismometer 
