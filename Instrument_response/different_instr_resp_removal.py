@@ -17,10 +17,19 @@ from obspy.signal.util import _npts2nfft
 import time
 
 #%% Importing set parameters
+from myfunctions import butter_bandpass
 from recordings_parameters.parameters import paz
 #%% Reading the data
 path = '/Users/annamaria/PhD/Data/Matera/20201105_building_data/EQ/'
-file = 'Lunitek.GE004.EHE.2019.298.04.31.10'
+
+""" Files to choose:
+    -> Lunitek.GE004.EHE.2019.298.04.31.10
+    -> Reftek.9EDA.EHE.2019.298.04.31.10
+    -> CUBE.c0AAU.p2.2019.298.04.31.10
+"""
+example_files = ['Lunitek.GE004.EHE.2019.298.04.31.10', 'Reftek.9EDA.EHE.2019.298.04.31.10', 'CUBE.c0AAU.p2.2019.298.04.31.10']
+example = 2 # choose a number from 0 to 2
+file = example_files[example]
 
 data = read(path + file)
 data.plot()
@@ -65,7 +74,7 @@ freqaxis = np.fft.rfftfreq(nfft, d = 1./samp_rate)
 
 #%% Approach #1 - Obspy simulate seismometer 
 tic = time.time()
-wl = 50
+wl = 40
 
 signal_rr1 = ob.signal.invsim.simulate_seismometer(
         data[0].data, samp_rate, paz_remove=paz_file, paz_simulate=None,
@@ -94,11 +103,11 @@ print(f'Approach #2 - Obspy manual response removal  = {toc} s')
 #%% Approach #3 - Using my deconvolution function
 tic = time.time()
 
-WL = 1
+wl_deconvo = 1
 abs_h=abs(h)
 h_wl = np.zeros(len(h),dtype = "complex")
 # calculating the response with the waterlevel
-WL2 = max(abs_h) * WL / 100
+WL2 = max(abs_h) * wl_deconvo / 100
 
 for i in range(len(h_wl)):
     if abs_h[i] == 0:
@@ -113,6 +122,23 @@ signal_rr3 = np.fft.irfft(fft_instr_rr3)[0:ndat]
 
 toc = time.time() - tic
 print(f'Approach #3 - Using my deconvolution function  = {toc} s')
+
+#%% Filtering of the data
+
+# setting filtering parameters
+fmin = 0.1
+fmax = 30
+fs = samp_rate
+
+# filtered signal in time domain
+filtered_sig1 = butter_bandpass(signal_rr1, fmin, fmax, fs)
+filtered_sig2 = butter_bandpass(signal_rr2, fmin, fmax, fs)
+filtered_sig3 = butter_bandpass(signal_rr3, fmin, fmax, fs)
+
+filt_fft_sig1 = np.fft.rfft(filtered_sig1, n=nfft)
+filt_fft_sig2 = np.fft.rfft(filtered_sig2, n=nfft)
+filt_fft_sig3 = np.fft.rfft(filtered_sig3, n=nfft)
+
 #%% Figures
 # sensor response
 fig, ax = plt.subplots(1,2)
@@ -135,123 +161,135 @@ fig.subplots_adjust(wspace=0.3)
 fig, axs = plt.subplots(4,1,figsize=(15,15))
 
 ax = axs[0]
-ax.plot(time_vector, signal_rr1)
+ax.plot(time_vector, signal_rr1, label = 'no filter', color = 'blue')
+ax.plot(time_vector, filtered_sig1, label = "filtered", color = 'green')
 ax.set_xlabel("Time [s]", fontsize = 14)
-ax.set_ylabel("Amplitude [m/s]", fontsize = 14)
+ax.set_ylabel("Velocity [m/s]", fontsize = 14)
 ax.set_title("Signal after instrument response", fontsize = 16)
+ax.legend()
 
 ax = axs[1]
-ax.loglog(freqaxis,abs(fft_instr_rr1))
+ax.loglog(freqaxis,abs(fft_instr_rr1), label = 'no filter', color = 'blue')
+ax.loglog(freqaxis,abs(filt_fft_sig1), label = "filtered", color = 'green')
 ax.set_xlabel("Frequency [Hz]", fontsize = 14)
 ax.set_ylabel("Amplitude", fontsize = 14)
 ax.set_title("Signal after instrument response", fontsize = 16)
+ax.legend()
 
 ax = axs[2]
-ax.plot(time_vector, data[0].data/max(data[0].data), label = "raw signal")
-ax.plot(time_vector, signal_rr1/max(signal_rr1), label = "instrument correction")
+ax.plot(time_vector, data[0].data/max(data[0].data), label = "raw signal", color = 'orange')
+ax.plot(time_vector, signal_rr1/max(signal_rr1), label = "instrument correction", color = 'blue')
 ax.set_xlabel("Time", fontsize = 14)
 ax.set_ylabel("Normalized amplitude", fontsize = 14)
 ax.legend()
 ax.set_title("Normalized signal in time domain", fontsize = 16)
 
 ax = axs[3]
-ax.loglog(freqaxis,abs(fft_raw)/max(abs(fft_raw)), label = "raw signal")
-ax.loglog(freqaxis,abs(fft_instr_rr1)/max(abs(fft_instr_rr1)), label = "instrument correction")
+ax.loglog(freqaxis,abs(fft_raw)/max(abs(fft_raw)), label = "raw signal", color = 'orange')
+ax.loglog(freqaxis,abs(fft_instr_rr1)/max(abs(fft_instr_rr1)), label = "instrument correction", color = 'blue')
 ax.set_xlabel("Frequency [Hz]", fontsize = 14)
 ax.set_ylabel("Normalized amplitude", fontsize = 14)
 ax.set_title("Normalized signals in frequency domain", fontsize = 16)
 ax.legend()
 
-fig.suptitle("Approach #1 - Obspy simulate_seismometer()", fontsize = 14)
+fig.suptitle(f"Approach #1 - Obspy simulate_seismometer(). Waterlevel = {wl} dB", fontsize = 16)
 fig.tight_layout()
 
 # Approach #2 - Obspy manual response removal
 fig, axs = plt.subplots(4,1,figsize=(15,15))
 
 ax = axs[0]
-ax.plot(time_vector, signal_rr2)
-ax.set_ylabel("Amplitude [m/s]", fontsize = 14)
+ax.plot(time_vector, signal_rr2, label = 'no filter', color = 'blue')
+ax.plot(time_vector, filtered_sig2, label = 'filtered', color = 'green')
+ax.set_ylabel("Velocity [m/s]", fontsize = 14)
 ax.set_xlabel("Time [s]", fontsize = 14)
-ax.set_title("Signal after instrument response", fontsize = 14)
+ax.set_title("Signal after instrument response", fontsize = 16)
+ax.legend()
 
 ax = axs[1]
-ax.loglog(freqaxis, abs(fft_instr_rr2))
+ax.loglog(freqaxis,abs(fft_instr_rr2), label = 'no filter', color = 'blue')
+ax.loglog(freqaxis,abs(filt_fft_sig2), label = "filtered", color = 'green')
 ax.set_xlabel("Frequency [Hz]", fontsize = 14)
 ax.set_ylabel("Amplitude", fontsize = 14)
-ax.set_title("Signal after instrument response", fontsize = 14)
+ax.set_title("Signal after instrument response", fontsize = 16)
+ax.legend()
 
 ax = axs[2]
-ax.plot(time_vector, data[0].data/max(data[0].data), label = "raw signal")
-ax.plot(time_vector, signal_rr2/max(signal_rr2), label = "instrument correction")
+ax.plot(time_vector, data[0].data/max(data[0].data), label = "raw signal", color = 'orange')
+ax.plot(time_vector, signal_rr2/max(signal_rr2), label = "instrument correction", color = 'blue')
 ax.set_xlabel("Time", fontsize = 14)
 ax.set_ylabel("Normalized amplitude", fontsize = 14)
 ax.legend()
-ax.set_title("Normalized signal in time domain", fontsize = 14)
+ax.set_title("Normalized signal in time domain", fontsize = 16)
 
 ax = axs[3]
-ax.loglog(freqaxis,abs(fft_raw)/max(abs(fft_raw)), label = "raw signal")
-ax.loglog(freqaxis,abs(fft_instr_rr2)/max(abs(fft_instr_rr2)), label = "instrument correction")
+ax.loglog(freqaxis,abs(fft_raw)/max(abs(fft_raw)), label = "raw signal", color = 'orange')
+ax.loglog(freqaxis,abs(fft_instr_rr2)/max(abs(fft_instr_rr2)), label = "instrument correction", color = 'blue')
 ax.set_xlabel("Frequency [Hz]", fontsize = 14)
 ax.set_ylabel("Normalized amplitude", fontsize = 14)
-ax.set_title("Normalized signals in frequency domain", fontsize = 14)
+ax.set_title("Normalized signals in frequency domain", fontsize = 16)
 ax.legend()
 
-fig.suptitle("Approach #2 - manual removal with waterlevel (Obspy)", fontsize = 14)
+fig.suptitle(f"Approach #2 - manual removal with waterlevel (Obspy). Waterlevel = {wl} dB", fontsize = 16)
 fig.tight_layout()
 
 # Approach #3 - Using my deconvolution function
 fig, axs = plt.subplots(4,1,figsize=(15,15))
 
 ax = axs[0]
-ax.plot(time_vector, signal_rr3)
-ax.set_ylabel("Amplitude [m/s]", fontsize = 14)
+ax.plot(time_vector, signal_rr3, label = 'no filter', color = 'blue')
+ax.plot(time_vector, filtered_sig3, label = "filtered", color = 'green')
 ax.set_xlabel("Time [s]", fontsize = 14)
-ax.set_title("Signal after instrument response", fontsize = 14)
+ax.set_ylabel("Velocity [m/s]", fontsize = 14)
+ax.set_title("Signal after instrument response", fontsize = 16)
+ax.legend()
 
 ax = axs[1]
-ax.loglog(freqaxis, abs(fft_instr_rr3))
+ax.loglog(freqaxis,abs(fft_instr_rr3), label = 'no filter', color = 'blue')
+ax.loglog(freqaxis,abs(filt_fft_sig3), label = "filtered", color = 'green')
 ax.set_xlabel("Frequency [Hz]", fontsize = 14)
 ax.set_ylabel("Amplitude", fontsize = 14)
-ax.set_title("Signal after instrument response", fontsize = 14)
+ax.set_title("Signal after instrument response", fontsize = 16)
+ax.legend()
 
 ax = axs[2]
-ax.plot(time_vector, data[0].data/max(data[0].data), label = "raw signal")
-ax.plot(time_vector, signal_rr3/max(signal_rr3), label = "instrument correction")
+ax.plot(time_vector, data[0].data/max(data[0].data), label = "raw signal", color = 'orange')
+ax.plot(time_vector, signal_rr3/max(signal_rr3), label = "instrument correction", color = 'blue')
 ax.set_xlabel("Time", fontsize = 14)
 ax.set_ylabel("Normalized amplitude", fontsize = 14)
 ax.legend()
-ax.set_title("Normalized signal in time domain", fontsize = 14)
+ax.set_title("Normalized signal in time domain", fontsize = 16)
 
 ax = axs[3]
-ax.loglog(freqaxis,abs(fft_raw)/max(abs(fft_raw)), label = "raw signal")
-ax.loglog(freqaxis,abs(fft_instr_rr3)/max(abs(fft_instr_rr3)), label = "instrument correction")
+ax.loglog(freqaxis,abs(fft_raw)/max(abs(fft_raw)), label = "raw signal", color = 'orange')
+ax.loglog(freqaxis,abs(fft_instr_rr3)/max(abs(fft_instr_rr3)), label = "instrument correction", color = 'blue')
 ax.set_xlabel("Frequency [Hz]", fontsize = 14)
 ax.set_ylabel("Normalized amplitude", fontsize = 14)
-ax.set_title("Normalized signals in frequency domain", fontsize = 14)
+ax.set_title("Normalized signals in frequency domain", fontsize = 16)
 ax.legend()
 
-fig.suptitle("Approach #3 - using deconvo() function (manual)", fontsize = 14)
+fig.suptitle(f"Approach #3 - using deconvo() function (manual). Waterlevel = {wl_deconvo} %", fontsize = 16)
 fig.tight_layout()
 
 # Comparision of all three approaches
-fig, axs = plt.subplots(3,1, figsize = (15,15))
+fig, axs = plt.subplots(3,1, figsize = (15,10))
 
 ax = axs[0]
 ax.plot(time_vector, signal_rr1, label = "approach #1")
 ax.plot(time_vector, signal_rr2, label = "approach #2")
 ax.plot(time_vector, signal_rr3, label = "approach #3", linestyle = ":")
-ax.set_ylabel("Amplitude [m/s]", fontsize = 14)
+ax.set_ylabel("Velocity [m/s]", fontsize = 14)
 ax.set_xlabel("Time [s]", fontsize = 14)
-ax.set_title("Signals after instrument response", fontsize = 14)
+ax.set_title("Signals after instrument response", fontsize = 16)
 ax.legend()
 
 ax = axs[1]
 ax.plot(time_vector[15000:30000], signal_rr1[15000:30000], label = "approach #1", linestyle = ":", linewidth = 3)
 ax.plot(time_vector[15000:30000], signal_rr2[15000:30000], label = "approach #2", linestyle = "--")
 ax.plot(time_vector[15000:30000], signal_rr3[15000:30000], label = "approach #3", linestyle = ":")
-ax.set_ylabel("Amplitude [m/s]", fontsize = 14)
+ax.set_ylabel("Velocity [m/s]", fontsize = 14)
 ax.set_xlabel("Time [s]", fontsize = 14)
-ax.set_title("Signals after instrument response - zoom", fontsize = 14)
+ax.set_title("Signals after instrument response - zoom", fontsize = 16)
 ax.legend()
 
 ax = axs[2]
@@ -260,7 +298,7 @@ ax.loglog(freqaxis, abs(fft_instr_rr2), label = "approach #2")
 ax.loglog(freqaxis, abs(fft_instr_rr3), label = "approach #3")
 ax.set_xlabel("Frequency [Hz]", fontsize = 14)
 ax.set_ylabel("Amplitude", fontsize = 14)
-ax.set_title("Signal after instrument response", fontsize = 14)
+ax.set_title("Signal after instrument response", fontsize = 16)
 ax.legend()
 
 fig.suptitle("Comparision of the results using different approaches", fontsize = 16)
